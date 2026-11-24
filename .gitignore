@@ -1,0 +1,11 @@
+scanner/.orca_api_key
+scanner/.cache/
+**/__pycache__/
+state/settled.json
+state/boards.json
+state/seed.json
+state/starts.json
+state/*.tmp
+.trigger_token
+config.js
+node_modules/
