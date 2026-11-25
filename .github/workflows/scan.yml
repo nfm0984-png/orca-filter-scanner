@@ -85,6 +85,10 @@ jobs:
         if: steps.quiet.outputs.skip != '1'
         with:
           path: _site
+      # deploy-pages@v4 can miss the artifact if it starts right after the upload.
+      - name: Wait for Pages artifact
+        if: steps.quiet.outputs.skip != '1'
+        run: sleep 20
       - id: deploy
         if: steps.quiet.outputs.skip != '1'
         uses: actions/deploy-pages@v4
