@@ -98,6 +98,20 @@
     return h;
   }
   // Filter tabs: one tab per top-5 filter by edge (data.filterTabs, built each scan).
+  // Until a scan writes filterTabs, build them here from the top 5 Best Filters and the
+  // picks each one surfaced (a pick's "why" lists its best filters).
+  function ensureFilterTabs() {
+    if (D.filterTabs && D.filterTabs.length) return;
+    var all = (D.ranked || []).map(function (p) { return [p, "ranked"]; }).concat((D.coming || []).map(function (p) { return [p, "coming"]; }));
+    D.filterTabs = (D.filters || []).slice(0, 5).map(function (f) {
+      var mine = all.filter(function (x) { return ((x[0].why && x[0].why.topCombos) || []).some(function (c) { return c.id === f.id; }); });
+      var today = mine.filter(function (x) { return x[1] === "ranked"; }).map(function (x) { return x[0]; });
+      var later = mine.filter(function (x) { return x[1] === "coming"; }).map(function (x) { return x[0]; });
+      var picks = today.concat(later).slice(0, 40).map(function (p, i) { var q = {}; for (var k in p) q[k] = p[k]; q.rank = i + 1; q.tab = p.tab || (i < today.length ? "ranked" : "coming"); return q; });
+      return { id: f.id, rank: f.rank, label: f.label, url: f.url, est: f.est, seedN: f.seedN, seedW: f.seedW, seedL: f.seedL, seedRoi: f.seedRoi,
+        liveN: f.liveN, liveW: f.liveW, liveL: f.liveL, liveRoi: f.liveRoi, nToday: today.length, nLater: later.length, picks: picks };
+    });
+  }
   function ftShort(t) { return String(t.label || t.id).replace(/^Sports · /, ""); }
   function filterTab(i) {
     var t = (D.filterTabs || [])[i];
@@ -118,6 +132,7 @@
     }).join("");
   }
   function render() {
+    ensureFilterTabs();
     var r = D.record || {};
     var h = '<div class="wrap"><div class="hero"><button class="reload" id="reload">↻</button><h1>Orca Filter Scanner</h1><div class="sub">Updated ' + esc(D.updatedPT || "–") + "</div>" +
       '<div class="stats"><div class="stat"><b>' + (D.ranked || []).length + "</b>Ranked</div><div class=\"stat\"><b>" + (D.coming || []).length + '</b>Coming up</div><div class="stat"><b>' +
