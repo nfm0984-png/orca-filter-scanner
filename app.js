@@ -76,7 +76,7 @@
     var chips = [["all", "All"], ["S", "Sports"], ["E", "Esports"], ["small", "Small-account"], ["P", "Real P&L boards"]].map(function (c) {
       return '<button class="chip' + (fcat === c[0] ? " on" : "") + '" data-fc="' + c[0] + '">' + c[1] + "</button>";
     }).join("");
-    var h = '<div class="note">Every OrcaLayer leaderboard filter combo the scanner pulls (' + (D.meta && D.meta.combos) + ' combos, top 25 each), ranked by learned edge. <b>Backtest</b> = members\' settled pre-game sports bets ($500+, or 3× avg bet for small bettors) since Nov 9 (hindsight: today's members, so it's discounted). <b>Scanner</b> = this site's own graded picks (honest). Tap a name to open that exact filter on OrcaLayer.</div>" +
+    var h = '<div class="note">Every OrcaLayer leaderboard filter combo the scanner pulls (' + (D.meta && D.meta.combos) + ' combos, top 25 each), ranked by learned edge. <b>Backtest</b> = members\' settled pre-game sports bets ($500+, or 3× avg bet for small bettors) since Nov 9 (hindsight: today\'s members, so it\'s discounted). <b>Scanner</b> = this site\'s own graded picks (honest). Tap a name to open that exact filter on OrcaLayer.</div>' +
       '<div class="chips">' + chips + "</div>";
     h += '<div class="card"><table><tr><th>#</th><th>Filter combo</th><th>Backtest</th><th>Scanner</th><th>Edge</th></tr>' + fs.slice(0, n).map(function (f) {
       return "<tr><td>" + f.rank + '</td><td><a href="' + esc(f.url) + '" target="_blank" rel="noopener">' + esc(f.label) + "</a>" + (f.onBoard ? ' <span class="tag">' + f.onBoard + " open</span>" : "") +
@@ -97,15 +97,37 @@
     }).join("") + "</table>" + (cs.length > n ? '<button class="chip" data-more="c">Show all ' + cs.length + "</button>" : "") + "</div>";
     return h;
   }
+  // Filter tabs: one tab per top-5 filter by edge (data.filterTabs, built each scan).
+  function ftShort(t) { return String(t.label || t.id).replace(/^Sports · /, ""); }
+  function filterTab(i) {
+    var t = (D.filterTabs || [])[i];
+    if (!t) return '<div class="empty">This filter tab fills in after the next scan.</div>';
+    var h = '<div class="card"><div class="row"><span class="rk">#' + t.rank + '</span><b>' + esc(t.label) + "</b></div>" +
+      '<div class="meta">Edge est <span class="' + cls(t.est) + '">' + edge(t.est) + "</span> · backtest " + (t.seedN ? rec(t.seedW, t.seedL, t.seedRoi) : "–") +
+      " · scanner " + (t.liveN ? rec(t.liveW, t.liveL, t.liveRoi) : "–") + "</div>" +
+      '<div class="meta">' + t.nToday + " pick" + (t.nToday === 1 ? "" : "s") + " today · " + t.nLater + " later</div>" +
+      '<a class="btn" href="' + esc(t.url) + '" target="_blank" rel="noopener">Open this filter on OrcaLayer ↗</a></div>';
+    var ps = t.picks || [];
+    if (!ps.length) return h + '<div class="empty">No open picks from this filter right now.</div>';
+    var shownLater = false;
+    return h + ps.map(function (p, j) {
+      var div = "";
+      if (p.tab === "coming" && !shownLater) { shownLater = true; div = '<div class="note"><b>Later games</b> (next 3 days), soonest first.</div>'; }
+      else if (j === 0) div = '<div class="note"><b>Today</b> · ' + esc(D.window || "") + ". Pre-game first, LIVE after.</div>";
+      return div + pickCard(p, j);
+    }).join("");
+  }
   function render() {
     var r = D.record || {};
     var h = '<div class="wrap"><div class="hero"><button class="reload" id="reload">↻</button><h1>Orca Filter Scanner</h1><div class="sub">Updated ' + esc(D.updatedPT || "–") + "</div>" +
       '<div class="stats"><div class="stat"><b>' + (D.ranked || []).length + "</b>Ranked</div><div class=\"stat\"><b>" + (D.coming || []).length + '</b>Coming up</div><div class="stat"><b>' +
       (r.n ? r.w + "-" + r.l : "–") + "</b>Graded" + (r.n ? " " + pct(r.roi) : "") + '</div><div class="stat"><b>' + ((D.meta && D.meta.combos) || "–") + "</b>Filter combos</div></div></div>" +
-      '<div class="tabs">' + [["ranked", "Ranked Picks"], ["coming", "Coming Up"], ["filters", "Best Filters"], ["cappers", "Best Cappers"]].map(function (t) {
+      '<div class="tabs">' + [["ranked", "Ranked Picks"], ["coming", "Coming Up"]].concat((D.filterTabs || []).map(function (t, i) {
+        return ["f" + (i + 1), "#" + (i + 1) + " " + ftShort(t) + " · " + (t.picks || []).length];
+      })).concat([["filters", "Best Filters"], ["cappers", "Best Cappers"]]).map(function (t) {
         return '<button class="tab' + (tab === t[0] ? " on" : "") + '" data-t="' + t[0] + '">' + t[1] + "</button>";
       }).join("") + "</div>";
-    h += tab === "coming" ? coming() : tab === "filters" ? filters() : tab === "cappers" ? cappers() : ranked();
+    h += /^f[1-5]$/.test(tab) ? filterTab(+tab.slice(1) - 1) : tab === "coming" ? coming() : tab === "filters" ? filters() : tab === "cappers" ? cappers() : ranked();
     h += '<div class="note">Not betting advice. ROI is $1 flat per pick at the price when the pick was added, fees not included.</div></div>';
     document.getElementById("root").innerHTML = h;
   }

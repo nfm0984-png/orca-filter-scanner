@@ -213,7 +213,7 @@ for c in live_now:
                       sport=sport_of(lp['league']), kind=lp['kind'], start=c['start'], startPT=fmt_pt(c['start']), live=c['start'] <= NOW,
                       price=c['cur'], entry=c['entry'], move=pk['move'], timing=pk['timing'], cost=c['cost'], oppCost=c['oppCost'],
                       nCombos=len(c['combos']), backers=tb, nBackers=len(c['backers']), added=lp['added'], addedPT=fmt_pt(lp['added']),
-                      url=f"https://polymarket.com/event/{lp.get('event') or ''}", addPx=lp['addPx']))
+                      url=f"https://polymarket.com/event/{lp.get('event') or ''}", addPx=lp['addPx'], combos=list(c['combos'])))
 # one side per market: keep the better-scored side, note the other
 best = {}
 for p in picks:
@@ -247,6 +247,25 @@ for cid in list(B['combos']) + ['SIG|cluster']:
 filters.sort(key=lambda f: -f['est'])
 for i, f in enumerate(filters):
     f['rank'] = i + 1
+# Filter tabs (Noel Nov 24): one site tab per top-5 filter by learned edge, holding every open pick
+# that filter surfaced. Today's window first (pre-game, then LIVE), then later games soonest first.
+FILTER_TABS_N, FILTER_TAB_PICKS = 5, 40
+filter_tabs = []
+for f in filters[:FILTER_TABS_N]:
+    mine = [p for p in picks if f['id'] in p['combos']]
+    today_ = sorted([p for p in mine if p['tab'] == 'ranked'], key=lambda p: (p['live'], -p['score']))
+    later_ = sorted([p for p in mine if p['tab'] == 'coming'], key=lambda p: (p['start'], -p['score']))
+    rows = []
+    for i, p in enumerate((today_ + later_)[:FILTER_TAB_PICKS]):
+        q = {k: v for k, v in p.items() if k != 'combos'}
+        q['rank'] = i + 1
+        rows.append(q)
+    filter_tabs.append(dict(id=f['id'], rank=f['rank'], label=f['label'], url=f['url'], est=f['est'],
+                            seedN=f['seedN'], seedW=f['seedW'], seedL=f['seedL'], seedRoi=f['seedRoi'],
+                            liveN=f['liveN'], liveW=f['liveW'], liveL=f['liveL'], liveRoi=f['liveRoi'],
+                            nToday=len(today_), nLater=len(later_), picks=rows))
+for p in picks:
+    p.pop('combos', None)
 cappers = []
 for w, m in M.items():
     sr = SEED['traders'].get(w); lr = tlive.get(w)
@@ -270,7 +289,7 @@ for f, (pr, pn) in model.FACTOR_PRIORS.items():
 recent = sorted([p for p in LP.values() if p.get('res')], key=lambda p: -p.get('graded', 0))[:60]
 tot_g = [p for p in graded]
 data = dict(ts=NOW, updatedPT=fmt_pt(NOW), window=f"games on {today.strftime('%a %b %-d')}" + (f" + {(today + dt.timedelta(days=1)).strftime('%a %b %-d')} (after 7 PM PT)" if late_night else ''),
-            ranked=ranked[:60], coming=coming[:60], filters=filters, cappers=cappers, factors=factors,
+            ranked=ranked[:60], coming=coming[:60], filters=filters, filterTabs=filter_tabs, cappers=cappers, factors=factors,
             record=dict(n=len(tot_g), w=sum(p['res'] == 'W' for p in tot_g), l=sum(p['res'] == 'L' for p in tot_g),
                         roi=round(sum(flat_roi(p['res'], p['addPx']) for p in tot_g) / len(tot_g), 4) if tot_g else None),
             recent=[dict(q=p['q'], outcome=p['outcome'], res=p['res'], addPx=p['addPx'], addedPT=fmt_pt(p['added']), startPT=fmt_pt(p['start'])) for p in recent],
